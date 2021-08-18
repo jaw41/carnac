@@ -7,5 +7,10 @@
             DataContext = viewModel;
             InitializeComponent();
         }
-    }
+
+		private void PositionOnMonitorSelector_Loaded(object sender, System.Windows.RoutedEventArgs e)
+		{
+
+		}
+	}
 }

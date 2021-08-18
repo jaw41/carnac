@@ -49,9 +49,8 @@ namespace Carnac.Logic.Models
 
         protected void OnLeftChanged(EventArgs e)
         {
-            var handler = LeftChanged;
-            if (handler != null) handler(this, e);
-        }
+			LeftChanged?.Invoke(this, e);
+		}
 
         [NotifyProperty(AlsoNotifyFor = new[] { "Margins" })]
         public int TopOffset { get; set; }

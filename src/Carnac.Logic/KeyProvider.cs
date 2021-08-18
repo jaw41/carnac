@@ -21,7 +21,6 @@ namespace Carnac.Logic
         readonly IPasswordModeService passwordModeService;
         readonly IDesktopLockEventService desktopLockEventService;
         readonly PopupSettings settings;
-        string currentFilter = null;
 
         private readonly IList<Keys> modifierKeys =
             new List<Keys>
@@ -57,26 +56,13 @@ namespace Carnac.Logic
 
         private bool ShouldFilterProcess(out Regex filterRegex)
         {
-            filterRegex = null;
-            if (settings?.ProcessFilterExpression != currentFilter)
+            if (!string.IsNullOrEmpty(settings?.ProcessFilterExpression))
             {
-                currentFilter = settings?.ProcessFilterExpression;
-
-                if (!string.IsNullOrEmpty(currentFilter))
-                {
-                    try
-                    {
-                        filterRegex = new Regex(currentFilter, RegexOptions.IgnoreCase | RegexOptions.Compiled, TimeSpan.FromSeconds(1));
-                    }
-                    catch
-                    {
-                        filterRegex = null;
-                    }
-                }
-                else
-                {
-                    filterRegex = null;
-                }
+                filterRegex = new Regex(settings?.ProcessFilterExpression, RegexOptions.Compiled, Regex.InfiniteMatchTimeout);
+            }
+            else
+            {
+                filterRegex = null;
             }
 
             return (filterRegex != null);
@@ -129,20 +115,22 @@ namespace Carnac.Logic
         KeyPress ToCarnacKeyPress(InterceptKeyEventArgs interceptKeyEventArgs)
         {
             var process = AssociatedProcessUtilities.GetAssociatedProcess();
+            var isLetter = interceptKeyEventArgs.IsLetter();
+            var inputs = ToInputs(isLetter, winKeyPressed, interceptKeyEventArgs).ToArray();
+
             if (process == null)
             {
                 return null;
             }
 
-            // see if this process is one being filtered for
-            Regex filterRegex;
-            if (ShouldFilterProcess(out filterRegex) && !filterRegex.IsMatch(process.ProcessName))
+			// see if this process is one being filtered for
+			bool filterRegexAssigned = ShouldFilterProcess(out Regex filterRegex);
+
+			if (!filterRegexAssigned && !filterRegex.IsMatch(process.ProcessName))
             {
                 return null;
             }
-
-            var isLetter = interceptKeyEventArgs.IsLetter();
-            var inputs = ToInputs(isLetter, winKeyPressed, interceptKeyEventArgs).ToArray();
+         
             try
             {
                 string processFileName = process.MainModule.FileName;
@@ -151,7 +139,7 @@ namespace Carnac.Logic
             }
             catch (Exception)
             {
-                return new KeyPress(new ProcessInfo(process.ProcessName), interceptKeyEventArgs, winKeyPressed, inputs); ;
+                return new KeyPress(new ProcessInfo(process.ProcessName), interceptKeyEventArgs, winKeyPressed, inputs); 
             }
         }
 
@@ -177,10 +165,9 @@ namespace Carnac.Logic
             }
             else
             {
-                string input;
-                var shiftModifiesInput = interceptKeyEventArgs.Key.SanitiseShift(out input);
+				var shiftModifiesInput = interceptKeyEventArgs.Key.SanitiseShift(out string input);
 
-                if (!isLetter && !shiftModifiesInput && shiftPressed)
+				if (!isLetter && !shiftModifiesInput && shiftPressed)
                     yield return "Shift";
 
                 if (interceptKeyEventArgs.ShiftPressed && shiftModifiesInput)
